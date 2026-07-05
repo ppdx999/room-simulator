@@ -243,7 +243,7 @@ const THEMES = [
             northA:{wood:true, tex:'whiteH', hex:'#E4DCCE', label:'白木目（横）'} } },
   { name:'モダン', /* カフェ風と同構成で、L字だけ落ち着いた紺（やや白・緑寄せ）に */
     walls:{ ceilLDK:{...WOOD},
-            counter:{tex:'stoneNavy', hex:'#47606F', label:'紺（ストーン調）'},
+            counter:{tex:'navyH', hex:'#2B3448', label:'濃紺（横木目調）'},
             south:{hex:'#9A978F',label:'グレー'},
             northA:{wood:true, tex:'whiteH', hex:'#E4DCCE', label:'白木目（横）'} } },
 ];
@@ -402,8 +402,31 @@ function stoneTexture(base){
   return tex;
 }
 const stoneNavyTex = stoneTexture('#47606F');
+/* 濃紺の横木目（板張り調） */
+function navyWoodHTexture(){
+  const c = document.createElement('canvas'); c.width = 256; c.height = 256;
+  const g = c.getContext('2d');
+  for(let i=0;i<4;i++){
+    g.fillStyle = '#2B3448';
+    g.fillRect(0, i*64, 256, 64);
+    g.fillStyle = 'rgba(8,12,20,.38)';         /* 板の継ぎ目（横） */
+    g.fillRect(0, i*64, 256, 2);
+    g.fillStyle = 'rgba(255,255,255,.09)';
+    g.fillRect(0, i*64+30, 256, 1);
+    g.fillStyle = 'rgba(0,0,0,.14)';           /* 淡い横木目 */
+    g.fillRect(0, i*64+14, 256, 2);
+    g.fillRect(0, i*64+46, 256, 2);
+  }
+  const tex = new T.CanvasTexture(c);
+  tex.wrapS = tex.wrapT = T.RepeatWrapping;
+  tex.encoding = T.sRGBEncoding;
+  tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  tex.repeat.set(0.5, 1.6);
+  return tex;
+}
+const navyWoodHTex = navyWoodHTexture();
 /* テーマから tex:'名前' で参照できるテクスチャ一覧 */
-const TEXTURES = { ceil: ceilWoodTex, whiteH: whiteWoodHTex, stoneNavy: stoneNavyTex };
+const TEXTURES = { ceil: ceilWoodTex, whiteH: whiteWoodHTex, stoneNavy: stoneNavyTex, navyH: navyWoodHTex };
 /* 白地に控えめなダイヤ格子の柄クロス（タイル0.5m） */
 function patternTexture(){
   const c = document.createElement('canvas'); c.width = 256; c.height = 256;
