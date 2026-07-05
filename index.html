@@ -111,6 +111,41 @@ main{ flex:1; min-width:0; padding:1.1rem 1.4rem 3rem; }
 #modal a{ color:#CFE0C9; }
 #modal .hint{ color:#9C9485; font-size:.75rem; }
 #modal .navbtn{ background:transparent; color:#EDE9E2; border-color:#555; padding:.2rem .6rem; }
+#modalStrip{ display:none; }
+#navThemeUp, #navThemeDown{ display:none; }
+@media (max-width: 760px){
+  /* スマホ: 全画面カルーセル表示 */
+  #modal{ padding:0; background:#0F0E0C; }
+  #modal .box{ max-width:none; width:100vw; height:100dvh; display:flex; flex-direction:column; justify-content:center; }
+  #modal #modalImg{ display:none; }
+  #modalStrip{
+    display:flex; overflow-x:auto; overscroll-behavior-x:contain;
+    scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch; width:100vw;
+    scrollbar-width:none;
+  }
+  #modalStrip::-webkit-scrollbar{ display:none; }
+  #modalStrip .slide{
+    flex:0 0 100vw; scroll-snap-align:center;
+    display:flex; align-items:center; justify-content:center;
+  }
+  #modalStrip img{ width:100vw; height:auto; display:block; }
+  #modal .bar{
+    position:absolute; left:0; right:0; bottom:0; margin:0;
+    padding:.55rem .9rem calc(.55rem + env(safe-area-inset-bottom));
+    background:rgba(15,14,12,.78); font-size:.78rem;
+  }
+  #modal .bar .navbtn:not(#modalClose){ display:none; }
+  #modal .bar .hint{ display:none; }
+  #navThemeUp, #navThemeDown{
+    display:flex; align-items:center; justify-content:center;
+    position:absolute; left:50%; transform:translateX(-50%); z-index:3;
+    width:46px; height:46px; border-radius:50%;
+    background:rgba(25,24,22,.55); color:#fff;
+    border:1px solid rgba(255,255,255,.4); font-size:1.05rem; padding:0;
+  }
+  #navThemeUp{ top:calc(14px + env(safe-area-inset-top)); }
+  #navThemeDown{ bottom:calc(72px + env(safe-area-inset-bottom)); }
+}
 
 .note{
   margin-top:1.4rem; padding:.7rem .9rem; background:var(--shade); border-radius:8px;
@@ -176,7 +211,10 @@ main{ flex:1; min-width:0; padding:1.1rem 1.4rem 3rem; }
 </div>
 
 <div id="modal" role="dialog" aria-modal="true">
+  <button id="navThemeUp" title="前のテーマ">▲</button>
+  <button id="navThemeDown" title="次のテーマ">▼</button>
   <div class="box">
+    <div id="modalStrip"></div>
     <img id="modalImg" alt="">
     <div class="bar">
       <span id="modalLabel"></span>
@@ -843,6 +881,7 @@ async function renderAll(){
     results.push({ row, imgs });
   }
   shots = results;
+  stripRow = -1;
   buildGrid(results);
   const lightName = LIGHT_DEFS.find(l=>l.key===state.lighting).label;
   $('#status').textContent = `${total}枚 完了 ｜ テーマ ${themeRows.length}件 ｜ 照明: ${lightName}`;
@@ -925,21 +964,56 @@ async function saveThemeSheet(ri){
   a.click();
 }
 /* モーダル（←→: カメラ切替、↑↓: 色切替） */
-let modalPos = null;
+let modalPos = null, stripRow = -1, stripSyncing = false, stripScrollT = null;
+const mobileMQ = window.matchMedia('(max-width: 760px)');
+function updateModalMeta(){
+  const { r, c } = modalPos;
+  const { row, imgs } = shots[r];
+  const { cam, url } = imgs[c];
+  $('#modalLabel').textContent = `${row.name} ／ ${cam.label}`;
+  $('#modalPosLabel').textContent = `テーマ ${r+1}/${shots.length} ・ カメラ ${c+1}/${imgs.length}`;
+  const a = $('#modalDl'); a.href = url; a.download = `${row.name}_${cam.key}.jpg`;
+}
+/* スマホ用カルーセル: 現テーマの全カメラ画像を横並びにして c 枚目へスクロール */
+function buildStrip(r, c){
+  const strip = $('#modalStrip');
+  if(stripRow !== r){
+    strip.textContent = '';
+    for(const { url } of shots[r].imgs)
+      strip.append(el('div', {class:'slide'}, el('img', {src:url, alt:''})));
+    stripRow = r;
+  }
+  stripSyncing = true;
+  requestAnimationFrame(()=>{
+    strip.scrollLeft = c * strip.clientWidth;
+    setTimeout(()=>{ stripSyncing = false; }, 120);
+  });
+}
 function showModal(r, c){
   if(!shots.length) return;
   r = (r + shots.length) % shots.length;
   const imgs = shots[r].imgs;
   c = (c + imgs.length) % imgs.length;
   modalPos = { r, c };
-  const { row } = shots[r];
-  const { cam, url } = imgs[c];
-  $('#modalImg').src = url;
-  $('#modalLabel').textContent = `${row.name} ／ ${cam.label}`;
-  $('#modalPosLabel').textContent = `テーマ ${r+1}/${shots.length} ・ カメラ ${c+1}/${imgs.length}`;
-  const a = $('#modalDl'); a.href = url; a.download = `${row.name}_${cam.key}.jpg`;
+  updateModalMeta();
+  if(mobileMQ.matches) buildStrip(r, c);
+  else $('#modalImg').src = imgs[c].url;
   $('#modal').classList.add('open');
 }
+$('#modalStrip').addEventListener('scroll', ()=>{
+  if(stripSyncing || !modalPos) return;
+  clearTimeout(stripScrollT);
+  stripScrollT = setTimeout(()=>{
+    const strip = $('#modalStrip');
+    const c = Math.round(strip.scrollLeft / strip.clientWidth);
+    if(c !== modalPos.c && shots[modalPos.r] && shots[modalPos.r].imgs[c]){
+      modalPos.c = c;
+      updateModalMeta();
+    }
+  }, 90);
+});
+$('#navThemeUp').addEventListener('click', ()=>{ if(modalPos) showModal(modalPos.r - 1, modalPos.c); });
+$('#navThemeDown').addEventListener('click', ()=>{ if(modalPos) showModal(modalPos.r + 1, modalPos.c); });
 function closeModal(){ $('#modal').classList.remove('open'); modalPos = null; }
 $('#modal').addEventListener('click', e=>{ if(e.target.id==='modal') closeModal(); });
 $('#modalClose').addEventListener('click', closeModal);
