@@ -327,11 +327,11 @@ const kasagiMat = stdMat('#35322E', 0.7);   /* カウンター笠木（テーマ
 
 /* --- 床（板張りテクスチャ） --- */
 /* エイジドチェスナット柄・木目は東西（z方向）貼り */
-function woodTexture(ru, rv){
+function woodTexture(ru, rv, tone = '#8B6A4E'){
   const c = document.createElement('canvas'); c.width = 256; c.height = 256;
   const g = c.getContext('2d');
   /* パナソニック エイジドチェスナット: 板ごとの色差はなく均一 */
-  const tones = ['#8B6A4E','#8B6A4E','#8B6A4E','#8B6A4E'];
+  const tones = [tone, tone, tone, tone];
   for(let i=0;i<4;i++){
     g.fillStyle = tones[i];
     g.fillRect(i*64, 0, 64, 256);
@@ -353,8 +353,8 @@ function woodTexture(ru, rv){
   return tex;
 }
 const floorMat = new T.MeshStandardMaterial({ map:woodTexture(6, 2.4), roughness:0.6, metalness:0 });
-/* 木目天井（羽目板）用テクスチャ。天井ボックスはワールドUV(m単位)なので repeat=タイル数/m */
-const ceilWoodTex = woodTexture(1.6, 0.4);
+/* 木目天井（羽目板）用テクスチャ。床より一段明るいトーン。repeat=タイル数/m */
+const ceilWoodTex = woodTexture(1.6, 0.4, '#A58468');
 /* 白っぽい横木目（羽目板）。壁UV=(x,y)なので板は横向き＝canvasの行方向に並べる */
 function whiteWoodHTexture(){
   const c = document.createElement('canvas'); c.width = 256; c.height = 256;
