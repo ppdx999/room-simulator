@@ -238,12 +238,12 @@ const THEMES = [
             counter:{hex:'#C9C7C1',label:'ライトグレー'} } },
   { name:'カフェ風', /* LDK木天井＋キッチンまわりグレー。洋室Aは白天井×木目の奥壁 */
     walls:{ ceilLDK:{...WOOD},
-            counter:{hex:'#7E7B73',label:'濃いめグレー'},
+            counter:{tex:'grayH', hex:'#7E7B73', label:'グレー（横木目調）'},
             south:{hex:'#9A978F',label:'グレー'},
             northA:{wood:true, tex:'whiteH', hex:'#E4DCCE', label:'白木目（横）'} } },
   { name:'モダン', /* カフェ風と同構成で、L字だけ落ち着いた紺（やや白・緑寄せ）に */
     walls:{ ceilLDK:{...WOOD},
-            counter:{tex:'navyH', hex:'#2B3448', label:'濃紺（横木目調）'},
+            counter:{hex:'#2B3448', label:'濃紺'},
             south:{hex:'#9A978F',label:'グレー'},
             northA:{wood:true, tex:'whiteH', hex:'#E4DCCE', label:'白木目（横）'} } },
 ];
@@ -402,12 +402,12 @@ function stoneTexture(base){
   return tex;
 }
 const stoneNavyTex = stoneTexture('#47606F');
-/* 濃紺の横木目（板張り調） */
-function navyWoodHTexture(){
+/* 任意の色の横木目（板張り調） */
+function toneWoodHTexture(base){
   const c = document.createElement('canvas'); c.width = 256; c.height = 256;
   const g = c.getContext('2d');
   for(let i=0;i<4;i++){
-    g.fillStyle = '#2B3448';
+    g.fillStyle = base;
     g.fillRect(0, i*64, 256, 64);
     g.fillStyle = 'rgba(8,12,20,.38)';         /* 板の継ぎ目（横） */
     g.fillRect(0, i*64, 256, 2);
@@ -424,9 +424,10 @@ function navyWoodHTexture(){
   tex.repeat.set(0.5, 1.6);
   return tex;
 }
-const navyWoodHTex = navyWoodHTexture();
+const navyWoodHTex = toneWoodHTexture('#2B3448');
+const grayWoodHTex = toneWoodHTexture('#7E7B73');
 /* テーマから tex:'名前' で参照できるテクスチャ一覧 */
-const TEXTURES = { ceil: ceilWoodTex, whiteH: whiteWoodHTex, stoneNavy: stoneNavyTex, navyH: navyWoodHTex };
+const TEXTURES = { ceil: ceilWoodTex, whiteH: whiteWoodHTex, stoneNavy: stoneNavyTex, navyH: navyWoodHTex, grayH: grayWoodHTex };
 /* 白地に控えめなダイヤ格子の柄クロス（タイル0.5m） */
 function patternTexture(){
   const c = document.createElement('canvas'); c.width = 256; c.height = 256;
