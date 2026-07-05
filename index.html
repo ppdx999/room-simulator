@@ -241,6 +241,11 @@ const THEMES = [
             counter:{hex:'#7E7B73',label:'濃いめグレー'},
             south:{hex:'#9A978F',label:'グレー'},
             northA:{wood:true, tex:'whiteH', hex:'#E4DCCE', label:'白木目（横）'} } },
+  { name:'モダン', /* カフェ風と同構成で、L字だけ落ち着いた紺（やや白・緑寄せ）に */
+    walls:{ ceilLDK:{...WOOD},
+            counter:{hex:'#384B52',label:'紺（青緑がかり）'},
+            south:{hex:'#9A978F',label:'グレー'},
+            northA:{wood:true, tex:'whiteH', hex:'#E4DCCE', label:'白木目（横）'} } },
 ];
 const WALL_SHORT = {
   east:'北壁', south:'東壁(ｷｯﾁﾝ背面)', divider:'西壁(洋室境)', westLDK:'南壁(TV)',
@@ -495,15 +500,11 @@ extMat.toneMapped = false;
   const wood = stdMat('#8F6F4E', 0.75);
   const dark = stdMat('#35322E', 0.7);
   const wht  = stdMat('#EDEBE6', 0.8);
-  /* ラグ（ソファとテレビの間） */
-  const rug = new T.Mesh(new T.PlaneGeometry(1.9, 1.7), stdMat('#D6CFC2', 1));
-  rug.rotation.x = -Math.PI/2; rug.position.set(1.80, 0.006, 4.20); rug.receiveShadow = true;
-  scene.add(rug);
-  /* ソファ 幅1500（北壁＝入口と階段の間に寄せ、南のテレビに向く） */
-  seg(fab, 3.42,3.64, 0.00,0.82, 3.63,5.13);
-  seg(fab, 2.85,3.44, 0.18,0.42, 3.78,4.98);
-  seg(fab, 2.79,3.64, 0.00,0.58, 3.63,3.78);
-  seg(fab, 2.79,3.64, 0.00,0.58, 4.98,5.13);
+  /* ソファ 幅1300（北壁＝入口と階段の間に寄せ、南のテレビに向く） */
+  seg(fab, 3.44,3.64, 0.00,0.80, 3.73,5.03);
+  seg(fab, 2.92,3.46, 0.18,0.42, 3.87,4.89);
+  seg(fab, 2.86,3.64, 0.00,0.56, 3.73,3.87);
+  seg(fab, 2.86,3.64, 0.00,0.56, 4.89,5.03);
   /* テレビボード＋テレビ（南壁の西端・洋室A境目付近） */
   seg(wood, 0.00,0.40, 0,0.42, 2.95,4.65);
   const tv = seg(new T.MeshBasicMaterial({ color:0x101010 }), 0.015,0.035, 0.62,1.36, 3.15,4.45, false);
@@ -814,35 +815,50 @@ function buildGrid(results){
       shotsDiv));
   });
 }
-/* テーマ1件分の全カメラ画像を1枚のシートにして保存 */
+/* テーマ1件分を、昼・夜(電球色)・夜(昼白色)の3照明×全カメラで1枚のシートにして保存 */
 async function saveThemeSheet(ri){
   const entry = shots[ri];
   if(!entry) return;
-  const { row, imgs } = entry;
-  const TW = 640, THh = 427, GAP = 12, PAD = 28, HEAD = 66;
-  const cols = Math.min(3, imgs.length), rowsN = Math.ceil(imgs.length / cols);
+  const { row } = entry;
+  const cams = CAM_DEFS.filter(c=>state.cams.has(c.key));
+  if(!cams.length) return;
+  const prevStatus = $('#status').textContent;
+  const TW = 640, THh = 427, GAP = 12, PAD = 28, HEAD = 64, SEC = 44;
+  const cols = Math.min(3, cams.length), rowsN = Math.ceil(cams.length / cols);
+  const blockH = SEC + rowsN*(THh+30+GAP);
   const cv = document.createElement('canvas');
   cv.width  = PAD*2 + cols*TW + (cols-1)*GAP;
-  cv.height = HEAD + PAD + rowsN*(THh+30+GAP);
+  cv.height = HEAD + PAD + LIGHT_DEFS.length*blockH;
   const g = cv.getContext('2d');
   g.fillStyle = '#F5F3EF'; g.fillRect(0,0,cv.width,cv.height);
   g.fillStyle = '#28251F'; g.font = 'bold 22px sans-serif';
   g.fillText(`アクセントクロス: ${row.name}`, PAD, 32);
   g.font = '13px sans-serif'; g.fillStyle = '#6B655B';
-  const lightName = LIGHT_DEFS.find(l=>l.key===state.lighting).label;
   const summary = row.theme
     ? Object.entries(row.theme.walls).map(([k,c])=>`${WALL_SHORT[k]||k}=${c.label}`).join('　')
     : '全面ホワイト';
-  g.fillText(`${summary} ｜ 照明: ${lightName} ｜ LDK15.7帖＋洋室A4.5帖・CH2400 ｜ 床:エイジドチェスナット・扉:クリエモカ`, PAD, 54);
+  g.fillText(`${summary} ｜ LDK15.7帖＋洋室A4.5帖・CH2400 ｜ 床:エイジドチェスナット・扉:クリエモカ`, PAD, 54);
   const loadImg = url => new Promise(res=>{ const im = new Image(); im.onload = ()=>res(im); im.src = url; });
-  for(let i=0; i<imgs.length; i++){
-    const cx = PAD + (i%cols)*(TW+GAP);
-    const cy = HEAD + Math.floor(i/cols)*(THh+30+GAP);
-    const im = await loadImg(imgs[i].url);
-    g.drawImage(im, cx, cy, TW, THh);
-    g.fillStyle = '#6B655B'; g.font = '13px sans-serif';
-    g.fillText(imgs[i].cam.label, cx, cy+THh+20);
+  applyTheme(row.theme);
+  for(let li=0; li<LIGHT_DEFS.length; li++){
+    const L = LIGHT_DEFS[li];
+    $('#status').textContent = `「${row.name}」のシートを生成中… ${L.label}`;
+    await new Promise(r=>setTimeout(r, 0));
+    applyLighting(L.key);
+    const y0 = HEAD + li*blockH;
+    g.fillStyle = '#28251F'; g.font = 'bold 17px sans-serif';
+    g.fillText(`■ ${L.label}`, PAD, y0 + 26);
+    for(let i=0; i<cams.length; i++){
+      const im = await loadImg(shot(cams[i]));
+      const cx = PAD + (i%cols)*(TW+GAP);
+      const cy = y0 + SEC + Math.floor(i/cols)*(THh+30+GAP);
+      g.drawImage(im, cx, cy, TW, THh);
+      g.fillStyle = '#6B655B'; g.font = '13px sans-serif';
+      g.fillText(cams[i].label, cx, cy+THh+20);
+    }
   }
+  applyLighting(state.lighting);
+  $('#status').textContent = prevStatus;
   const a = document.createElement('a');
   a.href = cv.toDataURL('image/png');
   a.download = `${row.name.replace(/[\\\/:*?"<>|]/g,'_')}.png`;
