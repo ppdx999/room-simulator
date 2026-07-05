@@ -119,6 +119,18 @@ main{ flex:1; min-width:0; padding:1.1rem 1.4rem 3rem; }
 @media (max-width: 760px){
   .layout{ flex-direction:column; }
   aside{ width:100%; position:static; max-height:none; border-right:none; border-bottom:1px solid var(--line); }
+  /* テーマの区切りを明確に: 見出しを全幅の帯（テーマ名のみ）にする */
+  .color-row{ margin-bottom:2.2rem; }
+  .color-row .head{
+    background:var(--ink); color:var(--bg);
+    margin:0 -1.4rem .65rem;
+    padding:.55rem 1.4rem;
+  }
+  .color-row .head .name{ font-size:1rem; letter-spacing:.03em; }
+  .color-row .chips{ display:none; }
+  .color-row .head .save{
+    color:var(--bg); opacity:.75; border-color:transparent; background:transparent;
+  }
 }
 </style>
 </head>
