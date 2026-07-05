@@ -1,0 +1,943 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>アクセントクロス シミュレーター</title>
+<style>
+:root{
+  --bg:#F5F3EF; --panel:#FFFFFF; --ink:#28251F; --muted:#8A8377;
+  --line:#E4DFD6; --accent:#5E6F5A; --accent-ink:#FFFFFF; --shade:#EDEAE3;
+}
+@media (prefers-color-scheme: dark){
+  :root{ --bg:#191816; --panel:#221F1B; --ink:#EAE5DC; --muted:#9C9485;
+         --line:#3A362E; --accent:#93A88D; --accent-ink:#1B1F19; --shade:#2B2822; }
+}
+:root[data-theme="dark"]{ --bg:#191816; --panel:#221F1B; --ink:#EAE5DC; --muted:#9C9485;
+  --line:#3A362E; --accent:#93A88D; --accent-ink:#1B1F19; --shade:#2B2822; }
+:root[data-theme="light"]{ --bg:#F5F3EF; --panel:#FFFFFF; --ink:#28251F; --muted:#8A8377;
+  --line:#E4DFD6; --accent:#5E6F5A; --accent-ink:#FFFFFF; --shade:#EDEAE3; }
+
+*{ box-sizing:border-box; }
+html,body{ margin:0; }
+body{
+  background:var(--bg); color:var(--ink);
+  font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic UI","Yu Gothic","Noto Sans JP",system-ui,sans-serif;
+  font-size:14px; line-height:1.65;
+}
+header.app{
+  display:flex; flex-wrap:wrap; align-items:baseline; gap:.4rem 1rem;
+  padding:1.1rem 1.4rem .9rem; border-bottom:1px solid var(--line);
+}
+header.app h1{ font-size:1.15rem; margin:0; font-weight:700; letter-spacing:.02em; }
+header.app .sub{ color:var(--muted); font-size:.82rem; }
+header.app .actions{ margin-left:auto; display:flex; gap:.5rem; }
+
+button{
+  font:inherit; border:1px solid var(--line); background:var(--panel); color:var(--ink);
+  border-radius:6px; padding:.42rem .9rem; cursor:pointer;
+}
+button:hover{ border-color:var(--accent); }
+button:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+button.primary{ background:var(--accent); color:var(--accent-ink); border-color:var(--accent); font-weight:600; }
+button.ghost{ background:transparent; }
+button:disabled{ opacity:.5; cursor:default; }
+
+.layout{ display:flex; align-items:flex-start; gap:0; }
+aside{
+  width:284px; flex:none; padding:1rem 1.1rem 2rem; border-right:1px solid var(--line);
+  position:sticky; top:0; max-height:100vh; overflow-y:auto;
+}
+aside h2{
+  font-size:.72rem; letter-spacing:.14em; text-transform:uppercase;
+  color:var(--muted); margin:1.3rem 0 .5rem; font-weight:600;
+}
+aside h2:first-child{ margin-top:.2rem; }
+aside label.row{ display:flex; align-items:center; gap:.5rem; padding:.14rem 0; cursor:pointer; }
+aside label.row input{ accent-color:var(--accent); }
+.hint{ color:var(--muted); font-size:.78rem; margin:.4rem 0 0; }
+
+#colorList{ display:flex; flex-direction:column; gap:.35rem; }
+.colorItem{ display:flex; align-items:center; gap:.45rem; }
+.colorItem input[type=color]{
+  width:34px; height:28px; padding:1px; border:1px solid var(--line); border-radius:5px;
+  background:var(--panel); cursor:pointer; flex:none;
+}
+.colorItem input[type=text]{
+  flex:1; min-width:0; font:inherit; font-size:.82rem; padding:.28rem .45rem;
+  border:1px solid var(--line); border-radius:5px; background:var(--panel); color:var(--ink);
+}
+.colorItem input[type=text]:focus-visible{ outline:2px solid var(--accent); outline-offset:1px; }
+.colorItem .del{ padding:.2rem .5rem; color:var(--muted); }
+#addColor{ margin-top:.5rem; width:100%; }
+
+#minimap{ display:block; background:var(--panel); border:1px solid var(--line); border-radius:8px; }
+.legend{ font-size:.75rem; color:var(--muted); margin-top:.35rem; }
+.legend .sw{ display:inline-block; width:10px; height:10px; border-radius:2px; margin:0 .25rem 0 .1rem; vertical-align:-1px; }
+
+main{ flex:1; min-width:0; padding:1.1rem 1.4rem 3rem; }
+#status{ color:var(--muted); font-size:.82rem; margin:0 0 .9rem; min-height:1.2em;
+         font-variant-numeric:tabular-nums; }
+
+.color-row{ margin-bottom:1.6rem; }
+.color-row .head{ display:flex; align-items:center; gap:.55rem; margin-bottom:.5rem; }
+.color-row .chip{ width:20px; height:20px; border-radius:4px; border:1px solid rgba(0,0,0,.15); flex:none; }
+.color-row .name{ font-weight:600; }
+.color-row .hex{ color:var(--muted); font-size:.78rem; font-variant-numeric:tabular-nums; letter-spacing:.03em; }
+.color-row .chips{ display:flex; flex-wrap:wrap; gap:.3rem; }
+.color-row .head .save{ margin-left:auto; font-size:.75rem; padding:.25rem .7rem; color:var(--muted); }
+.color-row .head .save:hover{ color:var(--ink); }
+.wchip{
+  display:inline-flex; align-items:center; gap:.32rem; font-size:.72rem; color:var(--muted);
+  border:1px solid var(--line); border-radius:99px; padding:.06rem .55rem;
+}
+.wchip .sw{ width:10px; height:10px; border-radius:2px; border:1px solid rgba(0,0,0,.18); }
+.shots{ display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:.7rem; }
+.shots figure{
+  margin:0; background:var(--panel); border:1px solid var(--line); border-radius:8px;
+  overflow:hidden; cursor:zoom-in;
+}
+.shots img{ display:block; width:100%; height:auto; }
+.shots figcaption{ padding:.3rem .6rem .4rem; font-size:.76rem; color:var(--muted); }
+
+#modal{
+  position:fixed; inset:0; background:rgba(15,14,12,.82); display:none;
+  align-items:center; justify-content:center; z-index:50; padding:2rem;
+}
+#modal.open{ display:flex; }
+#modal .box{ max-width:min(1100px,94vw); }
+#modal img{ display:block; max-width:100%; max-height:78vh; border-radius:6px; }
+#modal .bar{ display:flex; align-items:center; flex-wrap:wrap; gap:.5rem 1rem; color:#EDE9E2; padding:.6rem .2rem; font-size:.85rem; }
+#modal a{ color:#CFE0C9; }
+#modal .hint{ color:#9C9485; font-size:.75rem; }
+#modal .navbtn{ background:transparent; color:#EDE9E2; border-color:#555; padding:.2rem .6rem; }
+
+.note{
+  margin-top:1.4rem; padding:.7rem .9rem; background:var(--shade); border-radius:8px;
+  font-size:.78rem; color:var(--muted);
+}
+@media (max-width: 760px){
+  .layout{ flex-direction:column; }
+  aside{ width:100%; position:static; max-height:none; border-right:none; border-bottom:1px solid var(--line); }
+}
+</style>
+</head>
+<body>
+
+<header class="app">
+  <h1>アクセントクロス シミュレーター</h1>
+  <span class="sub">LDK 15.7帖 ＋ 洋室A 4.5帖（続き間）・天井高 2,400mm・床: エイジドチェスナット（東西貼り）・扉: クリエモカ</span>
+  <div class="actions">
+    <button id="rerender">再レンダリング</button>
+    <button id="saveSheet" class="primary">一覧をPNG保存</button>
+  </div>
+</header>
+
+<div class="layout">
+<aside>
+  <h2>テーマ</h2>
+  <div id="themeChecks"></div>
+  <p class="hint">テーマ＝壁ごとの色の組み合わせです。色の変更・新テーマの追加は Claude に依頼してください（コード内の THEMES を編集します）。</p>
+
+  <h2>照明</h2>
+  <div id="lightRadios"></div>
+
+  <h2>カメラ</h2>
+  <div id="camChecks"></div>
+
+  <h2>間取りとカメラ位置</h2>
+  <canvas id="minimap" width="216" height="392"></canvas>
+  <div class="legend">
+    <span class="sw" style="background:#5E6F5A"></span>カメラと視野
+  </div>
+
+  <div class="note">
+    レンダリングは面積効果（大きな面ほど明るく鮮やかに見える）の確認用です。
+    実際の質感・正確な色は A4 以上の実物サンプルで最終確認してください。
+  </div>
+</aside>
+
+<main>
+  <p id="status"></p>
+  <div id="results"></div>
+</main>
+</div>
+
+<div id="modal" role="dialog" aria-modal="true">
+  <div class="box">
+    <img id="modalImg" alt="">
+    <div class="bar">
+      <span id="modalLabel"></span>
+      <a id="modalDl" download>この画像を保存</a>
+      <span class="hint" id="modalPosLabel"></span>
+      <span style="display:flex;gap:.3rem;margin-left:auto">
+        <button class="navbtn" id="navPrevCam" title="前のカメラ（←）">‹</button>
+        <button class="navbtn" id="navNextCam" title="次のカメラ（→）">›</button>
+        <button class="navbtn" id="navPrevCol" title="前のテーマ（↑）">▲</button>
+        <button class="navbtn" id="navNextCol" title="次のテーマ（↓）">▼</button>
+        <button id="modalClose" class="navbtn">閉じる</button>
+      </span>
+      <span class="hint" style="flex-basis:100%">←→ 同じテーマでカメラ切替 ／ ↑↓ 同じカメラでテーマ切替 ／ Esc 閉じる</span>
+    </div>
+  </div>
+</div>
+
+<script src="./three.min.js"></script>
+<script>
+'use strict';
+const T = THREE;
+
+/* ================= 間取りデータ（図面より・単位 m） =================
+   x: 図面の左→右（Y1→Y5列）、z: 図面の上→下（X1→X12通り）
+   LDK 内寸 3.64 × 7.16（15.7帖 26.09㎡）、洋室A 2.73 × 2.73（4.5帖）、天井 2.4 */
+const H = 2.4, WT = 0.12;
+const LDK = { x0:0, x1:3.64, z0:2.85, z1:10.01 };
+const YA  = { x0:0, x1:2.73, z0:0,    z1:2.73  };   // 洋室A
+
+const WALL_DEFS = [
+  { key:'east',    label:'北側の壁（入口・階段・洗面所側）' },
+  { key:'south',   label:'東側の壁（キッチン背面）' },
+  { key:'divider', label:'西側の壁（洋室Aとの間・戸袋含む）' },
+  { key:'westLDK', label:'南側の壁（テレビ設置・掃き出し窓の壁）' },
+  { key:'northA',  label:'洋室Aの西側の壁（奥）' },
+  { key:'counter', label:'キッチンカウンターの腰壁（幅1820）' },
+  { key:'kwall',   label:'キッチン横の壁（換気扇の壁・幅910）' },
+  { key:'ceilLDK', label:'LDKの天井' },
+  { key:'ceilA',   label:'洋室Aの天井' },
+];
+const LIGHT_DEFS = [
+  { key:'day',       label:'昼・自然光' },
+  { key:'night2700', label:'夜・電球色（2700K）' },
+  { key:'night5000', label:'夜・昼白色（5000K）' },
+];
+const CAM_DEFS = [
+  { key:'c1', label:'① LDK北西隅から',            pos:[3.30,1.45,3.15], look:[1.2,1.00,6.8], fov:70 },
+  { key:'c2', label:'② LDK南西隅から',            pos:[0.40,1.45,3.10], look:[2.6,1.00,7.2], fov:70 },
+  { key:'c3', label:'③ LDK南東隅（カウンター横）から', pos:[0.40,1.45,7.45], look:[2.8,1.00,3.4], fov:68 },
+  { key:'c4', label:'④ キッチン・シンク前から西向き',  pos:[2.05,1.55,8.95], look:[1.5,0.95,2.9], fov:62 },
+  { key:'c5', label:'⑤ 洋室A西壁際からリビング方向',  pos:[1.37,1.45,0.30], look:[1.8,1.00,6.8], fov:70 },
+  { key:'c6', label:'⑥ LDK側から洋室Aを見渡す',   pos:[1.70,1.45,4.00], look:[1.3,1.00,0.6], fov:72 },
+];
+const WHITE = '#FBFAF8';   // 標準クロス
+
+/* ==== テーマ定義（壁ごとの色の組み合わせ）====
+   ここを編集して色・テーマを変更する。walls に無い壁は標準の白。
+   使える壁キー: east(北壁) / south(東壁ｷｯﾁﾝ背面) / divider(西壁・洋室境) /
+   westLDK(南壁TV) / northA(洋室A奥壁) / counter(腰壁) / kwall(換気扇壁) /
+   ceilLDK(LDK天井) / ceilA(洋室A天井) */
+/* {wood:true} を付けると色の代わりに床と同じチェスナット木目(羽目板)を貼る。
+   カウンター笠木(上面)は腰壁と同色になる。counterTop:'#hex' で個別上書きも可 */
+const WOOD = { wood:true, hex:'#8B6A4E', label:'木目羽目板' };
+const THEMES = [
+  { name:'シンプル木天井',   /* 天井だけ木目、壁は標準の白のまま */
+    walls:{ ceilLDK:{...WOOD},
+            ceilA:{...WOOD} } },
+  { name:'木天井×L字グレー', /* 木天井＋キッチン前のL字(換気扇壁・腰壁)だけ薄グレー */
+    walls:{ ceilLDK:{...WOOD},
+            ceilA:{...WOOD},
+            counter:{hex:'#C9C7C1',label:'ライトグレー'} } },
+  { name:'カフェ風', /* LDK木天井＋キッチンまわりグレー。洋室Aは白天井×木目の奥壁 */
+    walls:{ ceilLDK:{...WOOD},
+            counter:{hex:'#7E7B73',label:'濃いめグレー'},
+            south:{hex:'#9A978F',label:'グレー'},
+            northA:{wood:true, tex:'whiteH', hex:'#E4DCCE', label:'白木目（横）'} } },
+];
+const WALL_SHORT = {
+  east:'北壁', south:'東壁(ｷｯﾁﾝ背面)', divider:'西壁(洋室境)', westLDK:'南壁(TV)',
+  northA:'洋室A奥壁', counter:'腰壁', kwall:'換気扇壁', ceilLDK:'LDK天井', ceilA:'洋室A天井',
+};
+/* ルール: 換気扇壁(kwall)と腰壁(counter)は必ず同色。片方だけ指定されたらもう片方に自動コピー */
+for(const t of THEMES){
+  if(t.walls.counter && !t.walls.kwall) t.walls.kwall = { ...t.walls.counter };
+  else if(t.walls.kwall && !t.walls.counter) t.walls.counter = { ...t.walls.kwall };
+}
+
+/* ================= three.js シーン ================= */
+const scene = new T.Scene();
+scene.background = new T.Color(0xEAEDEF);
+const renderer = new T.WebGLRenderer({ antialias:true, preserveDrawingBuffer:true });
+renderer.setSize(960, 640);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = T.PCFSoftShadowMap;
+renderer.outputEncoding = T.sRGBEncoding;
+renderer.toneMapping = T.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.22;
+const camera = new T.PerspectiveCamera(60, 960/640, 0.05, 60);
+
+function srgb(hex){ return new T.Color(hex).convertSRGBToLinear(); }
+function stdMat(hex, rough=0.92){ return new T.MeshStandardMaterial({ color:srgb(hex), roughness:rough, metalness:0 }); }
+
+/* UVをワールド座標(m単位)に張り直す。分割された壁でも柄・木目が連続して等倍になる */
+function worldUV(mesh){
+  const g = mesh.geometry, pos = g.attributes.position, nor = g.attributes.normal, uv = g.attributes.uv;
+  const p = mesh.position;
+  for(let i=0;i<pos.count;i++){
+    const x = pos.getX(i)+p.x, y = pos.getY(i)+p.y, z = pos.getZ(i)+p.z;
+    const nx = Math.abs(nor.getX(i)), ny = Math.abs(nor.getY(i));
+    if(ny > 0.5)      uv.setXY(i, x, z);
+    else if(nx > 0.5) uv.setXY(i, z, y);
+    else              uv.setXY(i, x, y);
+  }
+  uv.needsUpdate = true;
+}
+function seg(mat, x0,x1, y0,y1, z0,z1, cast=true){
+  const m = new T.Mesh(new T.BoxGeometry(x1-x0, y1-y0, z1-z0), mat);
+  m.position.set((x0+x1)/2, (y0+y1)/2, (z0+z1)/2);
+  worldUV(m);
+  m.castShadow = cast; m.receiveShadow = true;
+  scene.add(m); return m;
+}
+/* z方向に走る壁（x=xc）。openings: {a,b,bottom,top}（zレンジ） */
+function zWall(mat, xc, z0, z1, ops){
+  const x0 = xc-WT/2, x1 = xc+WT/2;
+  ops = (ops||[]).slice().sort((p,q)=>p.a-q.a);
+  let cur = z0;
+  for(const o of ops){
+    if(o.a > cur) seg(mat, x0,x1, 0,H, cur,o.a);
+    if(o.bottom > 0) seg(mat, x0,x1, 0,o.bottom, o.a,o.b);
+    if(o.top < H)    seg(mat, x0,x1, o.top,H,    o.a,o.b);
+    cur = o.b;
+  }
+  if(cur < z1) seg(mat, x0,x1, 0,H, cur,z1);
+}
+/* x方向に走る壁（z=zc） */
+function xWall(mat, zc, x0, x1, ops){
+  const z0 = zc-WT/2, z1 = zc+WT/2;
+  ops = (ops||[]).slice().sort((p,q)=>p.a-q.a);
+  let cur = x0;
+  for(const o of ops){
+    if(o.a > cur) seg(mat, cur,o.a, 0,H, z0,z1);
+    if(o.bottom > 0) seg(mat, o.a,o.b, 0,o.bottom, z0,z1);
+    if(o.top < H)    seg(mat, o.a,o.b, o.top,H,    z0,z1);
+    cur = o.b;
+  }
+  if(cur < x1) seg(mat, cur,x1, 0,H, z0,z1);
+}
+
+/* 壁マテリアル（アクセント候補は個別に持つ） */
+const baseWall = stdMat(WHITE, 0.95);
+const candMats = {};
+for(const w of WALL_DEFS) candMats[w.key] = stdMat(WHITE, 0.95);
+const kasagiMat = stdMat('#35322E', 0.7);   /* カウンター笠木（テーマの counterTop で上書き可） */
+
+/* --- 床（板張りテクスチャ） --- */
+/* エイジドチェスナット柄・木目は東西（z方向）貼り */
+function woodTexture(ru, rv){
+  const c = document.createElement('canvas'); c.width = 256; c.height = 256;
+  const g = c.getContext('2d');
+  /* パナソニック エイジドチェスナット: 板ごとの色差はなく均一 */
+  const tones = ['#8B6A4E','#8B6A4E','#8B6A4E','#8B6A4E'];
+  for(let i=0;i<4;i++){
+    g.fillStyle = tones[i];
+    g.fillRect(i*64, 0, 64, 256);
+    g.fillStyle = 'rgba(40,25,15,.28)';
+    g.fillRect(i*64, 0, 2, 256);
+    g.fillStyle = 'rgba(255,255,255,.05)';
+    g.fillRect(i*64+30, 0, 1, 256);
+    g.fillStyle = 'rgba(60,40,25,.14)';
+    g.fillRect(i*64+12, 0, 3, 256);
+    g.fillRect(i*64+45, 0, 2, 256);
+    g.fillStyle = 'rgba(40,25,15,.30)';
+    g.fillRect(i*64, (i*97)%256, 64, 2);
+  }
+  const tex = new T.CanvasTexture(c);
+  tex.wrapS = tex.wrapT = T.RepeatWrapping;
+  tex.encoding = T.sRGBEncoding;
+  tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  tex.repeat.set(ru, rv);
+  return tex;
+}
+const floorMat = new T.MeshStandardMaterial({ map:woodTexture(6, 2.4), roughness:0.6, metalness:0 });
+/* 木目天井（羽目板）用テクスチャ。天井ボックスはワールドUV(m単位)なので repeat=タイル数/m */
+const ceilWoodTex = woodTexture(1.6, 0.4);
+/* 白っぽい横木目（羽目板）。壁UV=(x,y)なので板は横向き＝canvasの行方向に並べる */
+function whiteWoodHTexture(){
+  const c = document.createElement('canvas'); c.width = 256; c.height = 256;
+  const g = c.getContext('2d');
+  const tone = '#E4DCCE';   // ホワイトウォッシュした木
+  for(let i=0;i<4;i++){
+    g.fillStyle = tone;
+    g.fillRect(0, i*64, 256, 64);
+    g.fillStyle = 'rgba(120,100,78,.22)';      // 板の継ぎ目（横）
+    g.fillRect(0, i*64, 256, 2);
+    g.fillStyle = 'rgba(255,255,255,.30)';
+    g.fillRect(0, i*64+30, 256, 1);
+    g.fillStyle = 'rgba(120,100,78,.10)';      // 淡い横木目
+    g.fillRect(0, i*64+14, 256, 2);
+    g.fillRect(0, i*64+46, 256, 2);
+  }
+  const tex = new T.CanvasTexture(c);
+  tex.wrapS = tex.wrapT = T.RepeatWrapping;
+  tex.encoding = T.sRGBEncoding;
+  tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  tex.repeat.set(0.5, 1.6);   // x方向は長い板、y方向に板高さ約15cm
+  return tex;
+}
+const whiteWoodHTex = whiteWoodHTexture();
+const woodTexByKey = { ceil: ceilWoodTex, whiteH: whiteWoodHTex };
+/* 白地に控えめなダイヤ格子の柄クロス（タイル0.5m） */
+function patternTexture(){
+  const c = document.createElement('canvas'); c.width = 256; c.height = 256;
+  const g = c.getContext('2d');
+  g.fillStyle = '#FBFAF8'; g.fillRect(0,0,256,256);
+  g.strokeStyle = '#D8CFBE'; g.lineWidth = 3.2; g.lineJoin = 'round';
+  g.beginPath();
+  g.moveTo(128,0); g.lineTo(256,128); g.lineTo(128,256); g.lineTo(0,128); g.closePath();
+  g.stroke();
+  g.globalAlpha = 0.5;
+  g.beginPath();
+  g.moveTo(0,0); g.lineTo(256,256); g.moveTo(256,0); g.lineTo(0,256);
+  g.stroke();
+  g.globalAlpha = 1;
+  g.fillStyle = '#CFC5B0';
+  for(const [px,py] of [[128,0],[0,128],[128,256],[256,128],[128,128],[0,0],[256,0],[0,256],[256,256]]){
+    g.beginPath(); g.arc(px,py,4.2,0,7); g.fill();
+  }
+  const tex = new T.CanvasTexture(c);
+  tex.wrapS = tex.wrapT = T.RepeatWrapping;
+  tex.encoding = T.sRGBEncoding;
+  tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  tex.repeat.set(1.6, 1.6);
+  return tex;
+}
+const patternTex = patternTexture();
+{
+  const f = new T.Mesh(new T.PlaneGeometry(3.88, 10.25), floorMat);
+  f.rotation.x = -Math.PI/2;
+  f.position.set(1.82, 0, 4.95);
+  f.receiveShadow = true;
+  scene.add(f);
+}
+/* 天井（LDK・洋室Aそれぞれアクセント候補） */
+seg(candMats.ceilLDK, -0.12,3.76, H,H+0.12, 2.79,10.13, false);
+seg(candMats.ceilA,   -0.12,3.76, H,H+0.12, -0.12,2.79, false);
+
+/* --- 壁の構築 --- */
+/* 西壁（洋室A部分）: 引違い窓 16011 → w1.6 h1.1 sill0.9 */
+zWall(baseWall, -0.06, -0.12, 2.79, [ {a:0.57,b:2.17,bottom:0.9,top:2.0} ]);
+/* 西壁（LDK部分）: 掃き出し窓 16020（w1.6 床〜2.0）、縦滑り出し 06009（w0.6 h0.9 sill1.1） */
+zWall(candMats.westLDK, -0.06, 2.79, 10.13, [
+  {a:5.11,b:6.71,bottom:0,top:2.0},
+  {a:8.30,b:8.90,bottom:1.1,top:2.0},
+]);
+/* 洋室A 北壁 */
+xWall(candMats.northA, -0.06, -0.12, 2.85);
+/* 間仕切り壁（洋室A⇔LDK・南910は引き戸の戸袋、開口1820 h2.0） */
+xWall(candMats.divider, 2.79, -0.12, 3.76, [ {a:0.91,b:2.73,bottom:0,top:2.0} ]);
+/* LDK 北壁（西から: 入口ドア→壁1365→リビング階段910→洗面所ドア） */
+zWall(candMats.east, 3.70, 2.85, 10.01, [
+  {a:2.91,b:3.70,bottom:0,top:2.0},
+  {a:5.06,b:5.86,bottom:0,top:2.2},
+  {a:5.98,b:6.76,bottom:0,top:2.0},
+]);
+/* 東壁（キッチン背面） */
+xWall(candMats.south, 10.07, -0.12, 3.76);
+/* 収納・シューズインクローク領域（洋室A東側の塊） */
+seg(baseWall, 2.73, 3.76, 0, H, -0.12, 2.71);
+
+/* --- 建具・窓 --- */
+const glassMats = [];
+function windowWest(z0, z1, y0, y1, sash=true){
+  const fm = stdMat('#FBFAF7', 0.6);
+  const t = 0.05;
+  seg(fm, -0.10,-0.02, y1, y1+t, z0-t, z1+t, false);
+  if(y0 > 0) seg(fm, -0.10,-0.02, y0-t, y0, z0-t, z1+t, false);
+  seg(fm, -0.10,-0.02, y0, y1, z0-t, z0, false);
+  seg(fm, -0.10,-0.02, y0, y1, z1, z1+t, false);
+  if(sash) seg(fm, -0.095,-0.025, y0, y1, (z0+z1)/2-0.02, (z0+z1)/2+0.02, false);
+  const gm = new T.MeshStandardMaterial({ color:srgb('#CFE0EA'), transparent:true, opacity:0.25, roughness:0.1, metalness:0 });
+  const g = seg(gm, -0.07,-0.05, y0, y1, z0, z1, false);
+  g.castShadow = false;
+  glassMats.push(gm);
+}
+windowWest(0.57, 2.17, 0.9, 2.0);
+windowWest(5.11, 6.71, 0.0, 2.0);
+windowWest(8.30, 8.90, 1.1, 2.0, false);
+/* LDK入口ドア・洗面所ドア（北壁の開口内・クリエモカ） */
+{
+  const dm = stdMat('#6B543F', 0.72);
+  const hm = stdMat('#B8B5AF', 0.35);
+  seg(dm, 3.72,3.76, 0, 2.0, 2.93, 3.68, false);
+  seg(hm, 3.705,3.72, 0.95, 1.05, 2.99, 3.02, false);
+  seg(dm, 3.72,3.76, 0, 2.0, 6.00, 6.74, false);
+  seg(hm, 3.705,3.72, 0.95, 1.05, 6.66, 6.69, false);
+}
+/* リビング階段（北壁の開口の先・幅910） */
+{
+  const sw = stdMat('#EFEDE8', 0.95);
+  const treadMat = stdMat('#8B6A4E', 0.7);   /* 踏み面: 床と同じエイジドチェスナット */
+  seg(sw, 3.76, 5.20, 0, H, 4.94, 5.06);
+  seg(sw, 3.76, 5.20, 0, H, 5.86, 5.98);
+  seg(sw, 5.08, 5.20, 0, H, 5.06, 5.86);
+  for(let i=0;i<4;i++){
+    const x0 = 3.80 + 0.28*i, x1 = 4.08 + 0.28*i, top = 0.20*(i+1);
+    seg(sw, x0, x1, 0, top - 0.03, 5.06, 5.86);                 /* 蹴込み・側面: 白 */
+    seg(treadMat, x0 - 0.02, x1, top - 0.03, top, 5.06, 5.86);  /* 踏み板 */
+  }
+  seg(sw, 3.76, 5.20, H, H+0.12, 4.94, 5.98, false);
+  const sf = new T.Mesh(new T.PlaneGeometry(1.44, 0.92), floorMat);
+  sf.rotation.x = -Math.PI/2; sf.position.set(4.42, 0.001, 5.46); sf.receiveShadow = true;
+  scene.add(sf);
+}
+/* 屋外（窓の外の明るさ用の大きな面） */
+const extMat = new T.MeshBasicMaterial({ color:0xF2F6F8 });
+extMat.toneMapped = false;
+{
+  const p = new T.Mesh(new T.PlaneGeometry(16, 6), extMat);
+  p.rotation.y = Math.PI/2;
+  p.position.set(-1.4, 1.8, 5.0);
+  scene.add(p);
+}
+
+/* --- 家具（スケール感のための簡易モデル） --- */
+{
+  const fab  = stdMat('#AFA79A', 0.95);
+  const wood = stdMat('#8F6F4E', 0.75);
+  const dark = stdMat('#35322E', 0.7);
+  const wht  = stdMat('#EDEBE6', 0.8);
+  /* ラグ（ソファとテレビの間） */
+  const rug = new T.Mesh(new T.PlaneGeometry(1.9, 1.7), stdMat('#D6CFC2', 1));
+  rug.rotation.x = -Math.PI/2; rug.position.set(1.80, 0.006, 4.20); rug.receiveShadow = true;
+  scene.add(rug);
+  /* ソファ 幅1500（北壁＝入口と階段の間に寄せ、南のテレビに向く） */
+  seg(fab, 3.42,3.64, 0.00,0.82, 3.63,5.13);
+  seg(fab, 2.85,3.44, 0.18,0.42, 3.78,4.98);
+  seg(fab, 2.79,3.64, 0.00,0.58, 3.63,3.78);
+  seg(fab, 2.79,3.64, 0.00,0.58, 4.98,5.13);
+  /* テレビボード＋テレビ（南壁の西端・洋室A境目付近） */
+  seg(wood, 0.00,0.40, 0,0.42, 2.95,4.65);
+  const tv = seg(new T.MeshBasicMaterial({ color:0x101010 }), 0.015,0.035, 0.62,1.36, 3.15,4.45, false);
+  tv.material.toneMapped = false;
+  /* ダイニング: 直径1200の木目円卓＋椅子2脚（カウンター前） */
+  const round = (r, h, x, y, z) => {
+    const m = new T.Mesh(new T.CylinderGeometry(r, r, h, 36), wood);
+    m.position.set(x, y, z);
+    m.castShadow = m.receiveShadow = true;
+    scene.add(m);
+  };
+  round(0.60, 0.04, 1.60, 0.72, 6.75);   /* 天板 φ1200 */
+  round(0.07, 0.66, 1.60, 0.37, 6.75);   /* 支柱 */
+  round(0.28, 0.04, 1.60, 0.02, 6.75);   /* ベース */
+  for(const cz of [6.75]){
+    seg(fab, 0.68,1.08, 0.40,0.46, cz-0.22,cz+0.22);
+    seg(fab, 0.68,0.75, 0.46,0.85, cz-0.22,cz+0.22);
+    seg(fab, 2.12,2.52, 0.40,0.46, cz-0.22,cz+0.22);
+    seg(fab, 2.45,2.52, 0.46,0.85, cz-0.22,cz+0.22);
+  }
+  /* 対面キッチン（西から5005＝z7.86がLD/K境界。南910=換気扇を隠す壁、次の1820=腰壁h1300、北910=通路） */
+  seg(candMats.kwall,   0.00,0.91, 0.00,2.40, 7.86,8.02);      /* 換気扇前の壁（全高） */
+  seg(candMats.counter, 0.91,2.73, 0.00,1.00, 7.86,8.02);      /* カウンター腰壁（天板よりやや高い程度） */
+  seg(kasagiMat, 0.87,2.73, 1.00,1.04, 7.82,8.06);             /* 笠木 */
+  seg(wht,  0.00,2.73, 0.00,0.85, 8.02,8.67);                  /* キッチン本体（北から シンク→作業→コンロ） */
+  seg(dark, 0.00,2.73, 0.85,0.89, 8.02,8.71);                  /* 天板 */
+  seg(dark, 0.30,0.90, 0.892,0.90, 8.10,8.62, false);          /* コンロ（最南） */
+  seg(stdMat('#B9BDBF',0.3), 1.70,2.35, 0.885,0.90, 8.12,8.60, false); /* シンク（北側） */
+  seg(wht,  0.00,0.91, 1.55,2.40, 8.02,8.67);                  /* 換気扇ボックス（幅910） */
+  seg(stdMat('#9A9C9E',0.4), 0.10,0.80, 1.48,1.55, 8.06,8.62, false);  /* フード */
+  /* 東壁沿い 北から: パントリー910 → 冷蔵庫 → カップボード約1800 */
+  seg(wht,  0.00,1.80, 0.00,0.85, 9.56,10.01);                 /* カップボード（南側） */
+  seg(dark, 0.00,1.80, 0.85,0.89, 9.54,10.01);
+  seg(wht,  0.00,1.80, 1.55,2.20, 9.66,10.01);                 /* 吊戸棚 */
+  seg(stdMat('#CFCDC8',0.5), 1.90,2.66, 0.00,1.82, 9.31,10.01); /* 冷蔵庫 */
+  seg(wht,  2.73,3.64, 0.00,2.30, 9.36,10.01);                 /* パントリー（北端910） */
+}
+
+/* --- 照明器具（シーリング位置） --- */
+const fixtures = [];
+for(const [fx,fz] of [[1.8,4.3],[1.8,6.9],[1.35,1.35]]){
+  const m = new T.MeshStandardMaterial({ color:srgb('#F7F5F0'), roughness:0.5, emissive:0x000000 });
+  const mesh = new T.Mesh(new T.CylinderGeometry(0.24,0.26,0.07,24), m);
+  mesh.position.set(fx, H-0.045, fz);
+  scene.add(mesh);
+  fixtures.push(m);
+}
+
+/* --- 照明プリセット --- */
+const lightGroup = new T.Group();
+scene.add(lightGroup);
+function applyLighting(mode){
+  lightGroup.clear();
+  const night = mode !== 'day';
+  extMat.color.set(night ? 0x0B1016 : 0xF2F6F8);
+  for(const gm of glassMats){
+    gm.color = srgb(night ? '#141A22' : '#CFE0EA');
+    gm.opacity = night ? 0.85 : 0.25;
+  }
+  for(const f of fixtures){
+    f.emissive.set(night ? (mode==='night2700' ? 0xFFD9A0 : 0xEFF4FB) : 0x000000);
+    f.emissiveIntensity = night ? 0.9 : 0;
+  }
+  if(mode === 'day'){
+    scene.background = new T.Color(0xEAEDEF);
+    lightGroup.add(new T.HemisphereLight(0xF0F5F9, 0xB2A798, 0.95));
+    lightGroup.add(new T.AmbientLight(0xFFFFFF, 0.30));
+    const sun = new T.DirectionalLight(0xFFF3E2, 1.25);
+    sun.position.set(-6, 5.2, 5.6);
+    sun.target.position.set(2.2, 0, 5.9);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(2048, 2048);
+    sun.shadow.camera.left = -8; sun.shadow.camera.right = 8;
+    sun.shadow.camera.top = 8;  sun.shadow.camera.bottom = -8;
+    sun.shadow.camera.near = 0.5; sun.shadow.camera.far = 30;
+    sun.shadow.bias = -0.0006;
+    lightGroup.add(sun); lightGroup.add(sun.target);
+  } else {
+    scene.background = new T.Color(0x0B0D10);
+    const warm = mode === 'night2700';
+    const col = warm ? 0xFFC583 : 0xEDF2FA;
+    lightGroup.add(new T.AmbientLight(warm ? 0xFFD3A0 : 0xE3EAF2, 0.2));
+    lightGroup.add(new T.HemisphereLight(warm ? 0xFFDCAE : 0xEFF4FB, 0x554A3E, 0.22));
+    let first = true;
+    for(const [px,pz] of [[1.8,4.3],[1.8,6.9],[1.35,1.35]]){
+      const pl = new T.PointLight(col, warm ? 0.95 : 1.0, 9.5, 1.6);
+      pl.position.set(px, H-0.18, pz);
+      if(first){
+        pl.castShadow = true;
+        pl.shadow.mapSize.set(1024, 1024);
+        pl.shadow.bias = -0.004;
+        first = false;
+      }
+      lightGroup.add(pl);
+    }
+  }
+}
+
+/* --- テーマ適用（wood:true=木目テクスチャ、pattern:true=柄クロス） --- */
+function applyTheme(theme){
+  for(const w of WALL_DEFS){
+    const c = theme && theme.walls[w.key];
+    const m = candMats[w.key];
+    const map = c ? (c.wood ? (woodTexByKey[c.tex] || ceilWoodTex) : (c.pattern ? patternTex : null)) : null;
+    if(map !== m.map){
+      m.map = map;
+      m.needsUpdate = true;
+    }
+    m.color = srgb(map ? '#FFFFFF' : (c ? c.hex : WHITE));
+  }
+  /* 笠木は腰壁と同色（counterTop 指定があればそちらを優先） */
+  const counterHex = theme && theme.walls.counter ? theme.walls.counter.hex : WHITE;
+  kasagiMat.color = srgb((theme && theme.counterTop) || counterHex);
+}
+
+/* ================= UI ================= */
+const $ = s => document.querySelector(s);
+function el(tag, attrs={}, ...kids){
+  const e = document.createElement(tag);
+  for(const [k,v] of Object.entries(attrs)){
+    if(k === 'class') e.className = v;
+    else if(k.startsWith('on')) e.addEventListener(k.slice(2), v);
+    else e.setAttribute(k, v);
+  }
+  for(const k of kids) e.append(k);
+  return e;
+}
+
+/* テーマ・照明・カメラ */
+const state = {
+  themes: new Set(THEMES.map((_,i)=>i)),
+  lighting: 'day',
+  cams: new Set(CAM_DEFS.map(c=>c.key)),
+};
+THEMES.forEach((t,i)=>{
+  $('#themeChecks').append(el('label', {class:'row'},
+    el('input', {type:'checkbox', checked:'', onchange:e=>{
+      e.target.checked ? state.themes.add(i) : state.themes.delete(i);
+      queueRender();
+    }}), t.name));
+});
+for(const l of LIGHT_DEFS){
+  $('#lightRadios').append(el('label', {class:'row'},
+    el('input', {type:'radio', name:'lighting', ...(state.lighting===l.key?{checked:''}:{}), onchange:()=>{
+      state.lighting = l.key; queueRender();
+    }}), l.label));
+}
+for(const c of CAM_DEFS){
+  $('#camChecks').append(el('label', {class:'row'},
+    el('input', {type:'checkbox', checked:'', onchange:e=>{
+      e.target.checked ? state.cams.add(c.key) : state.cams.delete(c.key);
+      queueRender();
+    }}), c.label));
+}
+/* --- ミニ間取り図 --- */
+function drawMinimap(){
+  const cv = $('#minimap'), g = cv.getContext('2d');
+  const css = getComputedStyle(document.documentElement);
+  const line = css.getPropertyValue('--ink').trim() || '#333';
+  const mut  = css.getPropertyValue('--muted').trim() || '#999';
+  const S = 33, PX = 14, PZ = 26;
+  const mx = x => PX + x*S, mz = z => PZ + z*S;
+  g.clearRect(0,0,cv.width,cv.height);
+  g.lineJoin = 'round';
+  /* 床 */
+  g.fillStyle = 'rgba(150,130,100,.12)';
+  g.fillRect(mx(LDK.x0), mz(LDK.z0), (LDK.x1-LDK.x0)*S, (LDK.z1-LDK.z0)*S);
+  g.fillRect(mx(YA.x0),  mz(YA.z0),  (YA.x1-YA.x0)*S,  (YA.z1-YA.z0)*S);
+  /* 隣接エリア（薄く）: SIC・階段・洗面所・浴室 */
+  g.fillStyle = 'rgba(120,120,120,.08)';
+  g.fillRect(mx(2.73), mz(0),    0.91*S, 2.71*S);
+  g.fillRect(mx(3.64), mz(4.94), 1.44*S, 1.04*S);
+  g.fillRect(mx(3.64), mz(5.98), 1.82*S, 2.21*S);
+  g.fillRect(mx(3.64), mz(8.19), 1.82*S, 1.82*S);
+  /* 階段の踏み板 */
+  g.strokeStyle = mut; g.lineWidth = 1;
+  for(let i=1;i<5;i++){
+    g.beginPath(); g.moveTo(mx(3.64+0.28*i), mz(5.06)); g.lineTo(mx(3.64+0.28*i), mz(5.86)); g.stroke();
+  }
+  /* 輪郭 */
+  g.strokeStyle = line; g.lineWidth = 2;
+  g.strokeRect(mx(LDK.x0), mz(LDK.z0), (LDK.x1-LDK.x0)*S, (LDK.z1-LDK.z0)*S);
+  g.strokeRect(mx(YA.x0),  mz(YA.z0),  (YA.x1-YA.x0)*S,  (YA.z1-YA.z0)*S);
+  /* 間仕切りの開口（引き戸1820・南910は戸袋） */
+  g.strokeStyle = mut; g.lineWidth = 1; g.setLineDash([3,3]);
+  g.beginPath(); g.moveTo(mx(0.91), mz(2.82)); g.lineTo(mx(2.73), mz(2.82)); g.stroke();
+  g.setLineDash([]);
+  /* キッチン前: 換気扇の壁（濃）＋カウンター腰壁（淡） */
+  g.fillStyle = line;
+  g.fillRect(mx(0), mz(7.86), 0.91*S, 0.16*S);
+  g.fillStyle = 'rgba(120,120,120,.35)';
+  g.fillRect(mx(0.91), mz(7.86), 1.82*S, 0.16*S);
+  /* 窓（南側） */
+  g.strokeStyle = '#7FA8C0'; g.lineWidth = 3;
+  for(const [z0,z1] of [[0.57,2.17],[5.11,6.71],[8.30,8.90]]){
+    g.beginPath(); g.moveTo(mx(0), mz(z0)); g.lineTo(mx(0), mz(z1)); g.stroke();
+  }
+  /* 北壁のドア・階段開口 */
+  g.strokeStyle = mut; g.lineWidth = 3;
+  for(const [z0,z1] of [[2.91,3.70],[5.06,5.86],[5.98,6.76]]){
+    g.beginPath(); g.moveTo(mx(3.64), mz(z0)); g.lineTo(mx(3.64), mz(z1)); g.stroke();
+  }
+  /* 方位（北＝右） */
+  g.strokeStyle = mut; g.fillStyle = mut; g.lineWidth = 1.5;
+  g.beginPath(); g.moveTo(mx(4.2), 12); g.lineTo(mx(5.1), 12); g.stroke();
+  g.beginPath(); g.moveTo(mx(5.1), 12); g.lineTo(mx(4.9), 8); g.lineTo(mx(4.9), 16); g.closePath(); g.fill();
+  g.font = 'bold 10px sans-serif';
+  g.fillText('N', mx(3.85), 16);
+  /* ラベル */
+  g.fillStyle = mut; g.font = '10px sans-serif';
+  g.fillText('洋室A', mx(0.75), mz(1.45));
+  g.fillText('LDK',   mx(1.55), mz(5.5));
+  g.fillText('キッチン', mx(0.45), mz(9.1));
+  g.font = '9px sans-serif';
+  g.fillText('階段', mx(4.0), mz(5.55));
+  g.fillText('洗面所', mx(3.9), mz(7.1));
+  g.fillText('浴室', mx(4.05), mz(9.2));
+  /* カメラ */
+  const acc = css.getPropertyValue('--accent').trim() || '#5E6F5A';
+  CAM_DEFS.forEach((c,i)=>{
+    const [px,,pz] = c.pos, [lx,,lz] = c.look;
+    const a = Math.atan2(lz-pz, lx-px), half = (c.fov*Math.PI/180)/2 * 0.75;
+    g.fillStyle = acc; g.globalAlpha = 0.18;
+    g.beginPath(); g.moveTo(mx(px), mz(pz));
+    g.arc(mx(px), mz(pz), 1.1*S, a-half, a+half);
+    g.closePath(); g.fill();
+    g.globalAlpha = 1;
+    g.beginPath(); g.arc(mx(px), mz(pz), 7, 0, 7); g.fill();
+    g.fillStyle = '#fff'; g.font = 'bold 9px sans-serif'; g.textAlign = 'center';
+    g.fillText(String(i+1), mx(px), mz(pz)+3);
+    g.textAlign = 'left';
+  });
+}
+drawMinimap();
+new MutationObserver(drawMinimap).observe(document.documentElement, { attributes:true, attributeFilter:['data-theme'] });
+if(window.matchMedia) window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', drawMinimap);
+
+/* ================= レンダリング ================= */
+let renderToken = 0, queued = null, shots = [];
+function queueRender(){
+  clearTimeout(queued);
+  queued = setTimeout(renderAll, 350);
+}
+function shot(camDef){
+  camera.fov = camDef.fov;
+  camera.position.set(...camDef.pos);
+  camera.updateProjectionMatrix();
+  camera.lookAt(...camDef.look);
+  renderer.render(scene, camera);
+  return renderer.domElement.toDataURL('image/jpeg', 0.9);
+}
+async function renderAll(){
+  const token = ++renderToken;
+  const cams = CAM_DEFS.filter(c=>state.cams.has(c.key));
+  const themeRows = THEMES.filter((t,i)=>state.themes.has(i));
+  const rows = [{ name:'アクセントなし（参考）', theme:null }, ...themeRows.map(t=>({ name:t.name, theme:t }))];
+  const total = rows.length * cams.length;
+  if(!cams.length){
+    $('#status').textContent = 'カメラを1つ以上選んでください。';
+    return;
+  }
+  applyLighting(state.lighting);
+  const results = [];
+  let done = 0;
+  for(const row of rows){
+    if(token !== renderToken) return;
+    applyTheme(row.theme);
+    const imgs = [];
+    for(const cam of cams){
+      imgs.push({ cam, url: shot(cam) });
+      done++;
+      $('#status').textContent = `レンダリング中… ${done} / ${total}`;
+      await new Promise(r=>setTimeout(r, 0));
+      if(token !== renderToken) return;
+    }
+    results.push({ row, imgs });
+  }
+  shots = results;
+  buildGrid(results);
+  const lightName = LIGHT_DEFS.find(l=>l.key===state.lighting).label;
+  $('#status').textContent = `${total}枚 完了 ｜ テーマ ${themeRows.length}件 ｜ 照明: ${lightName}`;
+}
+function buildGrid(results){
+  const root = $('#results');
+  root.textContent = '';
+  results.forEach(({ row, imgs }, ri)=>{
+    const shotsDiv = el('div', {class:'shots'});
+    imgs.forEach(({ cam, url }, ci)=>{
+      const img = el('img', { src:url, alt:`${row.name} ${cam.label}`, loading:'lazy' });
+      shotsDiv.append(el('figure', { onclick:()=>showModal(ri, ci) },
+        img, el('figcaption', {}, cam.label)));
+    });
+    const chips = el('span', {class:'chips'});
+    if(row.theme){
+      for(const [k,c] of Object.entries(row.theme.walls))
+        chips.append(el('span', {class:'wchip'},
+          el('span', {class:'sw', style:`background:${c.hex}`}),
+          `${WALL_SHORT[k]||k}：${c.label}`));
+    } else {
+      chips.append(el('span', {class:'wchip'},
+        el('span', {class:'sw', style:`background:${WHITE}`}), '全面ホワイト'));
+    }
+    root.append(el('section', {class:'color-row'},
+      el('div', {class:'head'},
+        el('span', {class:'name'}, row.name),
+        chips,
+        el('button', {class:'ghost save', onclick:()=>saveThemeSheet(ri)}, 'このテーマをPNG保存')),
+      shotsDiv));
+  });
+}
+/* テーマ1件分の全カメラ画像を1枚のシートにして保存 */
+async function saveThemeSheet(ri){
+  const entry = shots[ri];
+  if(!entry) return;
+  const { row, imgs } = entry;
+  const TW = 640, THh = 427, GAP = 12, PAD = 28, HEAD = 66;
+  const cols = Math.min(3, imgs.length), rowsN = Math.ceil(imgs.length / cols);
+  const cv = document.createElement('canvas');
+  cv.width  = PAD*2 + cols*TW + (cols-1)*GAP;
+  cv.height = HEAD + PAD + rowsN*(THh+30+GAP);
+  const g = cv.getContext('2d');
+  g.fillStyle = '#F5F3EF'; g.fillRect(0,0,cv.width,cv.height);
+  g.fillStyle = '#28251F'; g.font = 'bold 22px sans-serif';
+  g.fillText(`アクセントクロス: ${row.name}`, PAD, 32);
+  g.font = '13px sans-serif'; g.fillStyle = '#6B655B';
+  const lightName = LIGHT_DEFS.find(l=>l.key===state.lighting).label;
+  const summary = row.theme
+    ? Object.entries(row.theme.walls).map(([k,c])=>`${WALL_SHORT[k]||k}=${c.label}`).join('　')
+    : '全面ホワイト';
+  g.fillText(`${summary} ｜ 照明: ${lightName} ｜ LDK15.7帖＋洋室A4.5帖・CH2400 ｜ 床:エイジドチェスナット・扉:クリエモカ`, PAD, 54);
+  const loadImg = url => new Promise(res=>{ const im = new Image(); im.onload = ()=>res(im); im.src = url; });
+  for(let i=0; i<imgs.length; i++){
+    const cx = PAD + (i%cols)*(TW+GAP);
+    const cy = HEAD + Math.floor(i/cols)*(THh+30+GAP);
+    const im = await loadImg(imgs[i].url);
+    g.drawImage(im, cx, cy, TW, THh);
+    g.fillStyle = '#6B655B'; g.font = '13px sans-serif';
+    g.fillText(imgs[i].cam.label, cx, cy+THh+20);
+  }
+  const a = document.createElement('a');
+  a.href = cv.toDataURL('image/png');
+  a.download = `${row.name.replace(/[\\\/:*?"<>|]/g,'_')}.png`;
+  a.click();
+}
+/* モーダル（←→: カメラ切替、↑↓: 色切替） */
+let modalPos = null;
+function showModal(r, c){
+  if(!shots.length) return;
+  r = (r + shots.length) % shots.length;
+  const imgs = shots[r].imgs;
+  c = (c + imgs.length) % imgs.length;
+  modalPos = { r, c };
+  const { row } = shots[r];
+  const { cam, url } = imgs[c];
+  $('#modalImg').src = url;
+  $('#modalLabel').textContent = `${row.name} ／ ${cam.label}`;
+  $('#modalPosLabel').textContent = `テーマ ${r+1}/${shots.length} ・ カメラ ${c+1}/${imgs.length}`;
+  const a = $('#modalDl'); a.href = url; a.download = `${row.name}_${cam.key}.jpg`;
+  $('#modal').classList.add('open');
+}
+function closeModal(){ $('#modal').classList.remove('open'); modalPos = null; }
+$('#modal').addEventListener('click', e=>{ if(e.target.id==='modal') closeModal(); });
+$('#modalClose').addEventListener('click', closeModal);
+$('#navPrevCam').addEventListener('click', ()=>{ if(modalPos) showModal(modalPos.r, modalPos.c-1); });
+$('#navNextCam').addEventListener('click', ()=>{ if(modalPos) showModal(modalPos.r, modalPos.c+1); });
+$('#navPrevCol').addEventListener('click', ()=>{ if(modalPos) showModal(modalPos.r-1, modalPos.c); });
+$('#navNextCol').addEventListener('click', ()=>{ if(modalPos) showModal(modalPos.r+1, modalPos.c); });
+document.addEventListener('keydown', e=>{
+  if(e.key === 'Escape'){ closeModal(); return; }
+  if(!modalPos || !$('#modal').classList.contains('open')) return;
+  const nav = {
+    ArrowRight: [0, 1], ArrowLeft: [0, -1],
+    ArrowDown:  [1, 0], ArrowUp:   [-1, 0],
+  }[e.key];
+  if(nav){
+    e.preventDefault();
+    showModal(modalPos.r + nav[0], modalPos.c + nav[1]);
+  }
+});
+
+/* コンタクトシート保存 */
+$('#saveSheet').addEventListener('click', async ()=>{
+  if(!shots.length) return;
+  const TW = 480, THh = 320, LBL = 34, PAD = 24, HEAD = 64;
+  const cols = shots[0].imgs.length, rowsN = shots.length;
+  const cv = document.createElement('canvas');
+  cv.width  = PAD*2 + cols*TW + (cols-1)*10;
+  cv.height = HEAD + PAD + rowsN*(THh+LBL+14);
+  const g = cv.getContext('2d');
+  g.fillStyle = '#F5F3EF'; g.fillRect(0,0,cv.width,cv.height);
+  g.fillStyle = '#28251F'; g.font = 'bold 20px sans-serif';
+  const lightName = LIGHT_DEFS.find(l=>l.key===state.lighting).label;
+  g.fillText('アクセントクロス テーマ比較', PAD, 30);
+  g.font = '13px sans-serif'; g.fillStyle = '#6B655B';
+  g.fillText(`照明: ${lightName} ｜ LDK15.7帖＋洋室A4.5帖・CH2400 ｜ 床:エイジドチェスナット・扉:クリエモカ`, PAD, 52);
+  /* カメララベル行 */
+  const cams = CAM_DEFS.filter(c=>state.cams.has(c.key));
+  g.font = '12px sans-serif';
+  cams.forEach((c,i)=> g.fillText(c.label, PAD + i*(TW+10), HEAD - 2));
+  const loadImg = url => new Promise(res=>{ const im = new Image(); im.onload = ()=>res(im); im.src = url; });
+  for(let r=0; r<rowsN; r++){
+    const y = HEAD + PAD/2 + r*(THh+LBL+14);
+    const { row, imgs } = shots[r];
+    g.fillStyle = '#28251F'; g.font = 'bold 14px sans-serif';
+    g.fillText(row.name, PAD, y+19);
+    let cx = PAD + g.measureText(row.name).width + 16;
+    g.font = '12px sans-serif';
+    if(row.theme){
+      for(const [k,c] of Object.entries(row.theme.walls)){
+        g.fillStyle = c.hex; g.fillRect(cx, y+8, 13, 13);
+        g.strokeStyle = 'rgba(0,0,0,.25)'; g.strokeRect(cx, y+8, 13, 13);
+        g.fillStyle = '#6B655B';
+        const t = `${WALL_SHORT[k]||k}=${c.label}`;
+        g.fillText(t, cx+17, y+19);
+        cx += 17 + g.measureText(t).width + 14;
+      }
+    } else {
+      g.fillStyle = '#6B655B';
+      g.fillText('全面ホワイト', cx, y+19);
+    }
+    for(let c=0; c<imgs.length; c++){
+      const im = await loadImg(imgs[c].url);
+      g.drawImage(im, PAD + c*(TW+10), y+LBL, TW, THh);
+    }
+  }
+  const a = document.createElement('a');
+  a.href = cv.toDataURL('image/png');
+  a.download = 'accent-cloth-comparison.png';
+  a.click();
+});
+$('#rerender').addEventListener('click', renderAll);
+
+/* 初回 */
+renderAll();
+</script>
+</body>
+</html>
